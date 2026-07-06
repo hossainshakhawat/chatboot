@@ -37,7 +37,9 @@ def message_view(request):
         {
             "text": text,
             "intent": result["intent"],
+            "sub_intent": result["sub_intent"],
             "confidence": result["confidence"],
             "scores": result["scores"],
+            "sub_intent_scores": result["sub_intent_scores"],
         }
     )
