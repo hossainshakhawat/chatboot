@@ -2,3 +2,4 @@
 
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"  # Lightweight BERT model
 SPACY_MODEL = "en_core_web_sm"
+INTENT_SIMILARITY_THRESHOLD = 0.45  # Minimum cosine similarity to accept an intent
