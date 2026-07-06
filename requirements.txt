@@ -7,3 +7,4 @@ weaviate-client==4.22.0
 spacy==3.8.14
 torch==2.12.1
 numpy==2.5.1
+PyYAML==6.0.3

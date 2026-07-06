@@ -7,213 +7,40 @@ vectors. The best-matching sub-intent determines both the sub-intent and
 its parent intent.
 """
 
+from pathlib import Path
+
 from sentence_transformers import SentenceTransformer
 from typing import Dict, List, Optional, Union
 import numpy as np
+import yaml
 from .config import EMBEDDING_MODEL, INTENT_SIMILARITY_THRESHOLD
 
 
 # Sub-intent name used when an intent is defined with a flat example list.
 GENERAL_SUB_INTENT = "general"
 
-DEFAULT_INTENTS: Dict[str, Dict[str, List[str]]] = {
-    "greeting": {
-        "general": [
-            "hello",
-            "hi there",
-            "good morning",
-            "hey, how are you?",
-        ],
-    },
-    "goodbye": {
-        "general": [
-            "bye",
-            "goodbye",
-            "see you later",
-            "thanks, that's all for now",
-        ],
-    },
-    "leave_request": {
-        "apply_leave": [
-            "how do I apply for annual leave?",
-            "I want to take a day off next week",
-            "can I take unpaid leave?",
-            "I need to request time off",
-        ],
-        "leave_balance": [
-            "how many vacation days do I have left?",
-            "what is my remaining leave balance?",
-            "check my available leave days",
-        ],
-        "leave_policy": [
-            "what is the sick leave policy?",
-            "how does maternity leave work here?",
-            "what types of leave does the company offer?",
-        ],
-    },
-    "payroll": {
-        "salary_payment": [
-            "when will I get my salary?",
-            "what date is payday this month?",
-            "my salary has not been credited yet",
-        ],
-        "payslip": [
-            "I have a question about my payslip",
-            "how do I view my salary statement?",
-            "where can I download my payslip?",
-        ],
-        "overtime_pay": [
-            "my overtime pay is missing this month",
-            "how is overtime calculated in my salary?",
-        ],
-        "tax_deduction": [
-            "how is my tax deducted from salary?",
-            "why is my tax deduction higher this month?",
-            "how do I get my tax certificate?",
-        ],
-    },
-    "benefits": {
-        "health_insurance": [
-            "what health insurance do we have?",
-            "how do I add my family to the health plan?",
-            "does the insurance cover dental care?",
-        ],
-        "retirement": [
-            "does the company offer a retirement plan?",
-            "how does the provident fund work?",
-        ],
-        "enrollment": [
-            "how do I enroll in the benefits program?",
-            "when is the benefits enrollment period?",
-        ],
-        "allowances": [
-            "what allowances am I entitled to?",
-            "is there a transport or meal allowance?",
-        ],
-    },
-    "it_support": {
-        "hardware": [
-            "my laptop is not working",
-            "my monitor screen is flickering",
-            "I need a replacement keyboard",
-        ],
-        "account_access": [
-            "I forgot my password and can't log in",
-            "my account is locked",
-            "I need access to the shared drive",
-        ],
-        "network": [
-            "how do I connect to the office VPN?",
-            "the office wifi is not working",
-        ],
-        "email": [
-            "my email is not syncing",
-            "I can't send emails from outlook",
-        ],
-    },
-    "hr_policy": {
-        "remote_work": [
-            "what is the remote work policy?",
-            "can I work from home this week?",
-        ],
-        "working_hours": [
-            "what are the official working hours?",
-            "what is the policy on overtime?",
-        ],
-        "dress_code": [
-            "what is the dress code at the office?",
-            "can I wear casual clothes on friday?",
-        ],
-        "handbook": [
-            "where can I find the employee handbook?",
-            "where are the company policies documented?",
-        ],
-    },
-    "attendance": {
-        "clock_in": [
-            "how do I mark my attendance?",
-            "I forgot to clock in this morning",
-        ],
-        "timesheet": [
-            "how do I correct my timesheet?",
-            "my working hours are recorded wrong",
-        ],
-        "late_arrival": [
-            "what happens if I arrive late?",
-            "I will be late to the office today",
-        ],
-    },
-    "onboarding": {
-        "getting_started": [
-            "I am a new employee, where do I start?",
-            "what should I do on my first day?",
-        ],
-        "documents": [
-            "what documents do I need to submit for joining?",
-            "where do I upload my joining paperwork?",
-        ],
-        "mentorship": [
-            "who is my assigned buddy or mentor?",
-            "who should I contact for onboarding questions?",
-        ],
-        "new_hire_training": [
-            "how do I complete my new hire training?",
-            "where do I find the orientation schedule?",
-        ],
-    },
-    "facilities": {
-        "room_booking": [
-            "how do I book a meeting room?",
-            "is the conference room free this afternoon?",
-        ],
-        "parking": [
-            "where can I get a parking pass?",
-            "is there visitor parking at the office?",
-        ],
-        "maintenance": [
-            "the air conditioning in my area is broken",
-            "the light in the hallway is not working",
-        ],
-        "supplies": [
-            "how do I request office supplies?",
-            "I need a new chair for my desk",
-        ],
-    },
-    "training": {
-        "courses": [
-            "what training courses are available?",
-            "where can I browse the learning catalog?",
-        ],
-        "certification": [
-            "how do I enroll in a certification program?",
-            "does the company support professional certifications?",
-        ],
-        "reimbursement": [
-            "does the company reimburse courses?",
-            "how do I claim my course fees?",
-        ],
-        "workshops": [
-            "when is the next skills workshop?",
-            "are there any upcoming training sessions?",
-        ],
-    },
-    "document_question": {
-        "general": [
-            "what does the document say about this?",
-            "summarize the pdf",
-            "find information in the file",
-            "search the document for details",
-        ],
-    },
-    "help": {
-        "general": [
-            "what can you do?",
-            "how does this work?",
-            "I need help",
-            "show me your features",
-        ],
-    },
-}
+INTENTS_FILE = Path(__file__).parent / "intents.yml"
+
+
+def load_intents(path: Union[str, Path] = INTENTS_FILE) -> Dict[str, Dict[str, List[str]]]:
+    """
+    Load intent definitions from a YAML file.
+
+    Args:
+        path: Path to a YAML file mapping intent name to sub-intent name to
+              example utterances. Defaults to intents.yml in this package.
+
+    Returns:
+        Mapping of intent name to sub-intent name to example utterances
+    """
+    with open(path, encoding="utf-8") as f:
+        intents = yaml.safe_load(f)
+    if not isinstance(intents, dict) or not intents:
+        raise ValueError(f"No intents found in {path}")
+    return intents
+
+
+DEFAULT_INTENTS: Dict[str, Dict[str, List[str]]] = load_intents()
 
 
 class IntentEmbedder:
